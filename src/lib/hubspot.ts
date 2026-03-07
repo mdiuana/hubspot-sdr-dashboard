@@ -1,6 +1,99 @@
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
 
+// HubSpot portal timezone: EST (UTC-5)
+const EST_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * Retorna la fecha de hoy en EST como string YYYY-MM-DD.
+ */
+export function getTodayDateEST(): string {
+  const nowEST = new Date(Date.now() - EST_OFFSET_MS);
+  const y = nowEST.getUTCFullYear();
+  const m = String(nowEST.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(nowEST.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Convierte una fecha YYYY-MM-DD al rango UTC [start, end).
+ * HubSpot guarda DATE como medianoche UTC del día indicado.
+ */
+export function getDateRangeForString(dateStr: string): { startMs: number; endMs: number } {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const startMs = Date.UTC(y, m - 1, d);
+  return { startMs, endMs: startMs + 24 * 60 * 60 * 1000 };
+}
+
+function getTodayRangeEST() {
+  return getDateRangeForString(getTodayDateEST());
+}
+
+/**
+ * Rango UTC para el mes actual en EST (medianoche UTC del 1º al 1º del siguiente).
+ */
+export function getMonthRangeEST(): { startMs: number; endMs: number } {
+  const nowEST = new Date(Date.now() - EST_OFFSET_MS);
+  const y = nowEST.getUTCFullYear();
+  const m = nowEST.getUTCMonth();
+  return { startMs: Date.UTC(y, m, 1), endMs: Date.UTC(y, m + 1, 1) };
+}
+
+const VALID_STATUSES = ['PR Agendada', 'PR Agendada FONO', 'PR Agendada WTSP', 'Pr RE-Agendada'];
+
+/**
+ * Búsqueda paginada de contactos con fecha_agendamiento en un rango y estado válido.
+ * Devuelve TODOS los resultados (maneja el cursor de paginación de HubSpot).
+ */
+export async function getContactsByDateRange(
+  startMs: number,
+  endMs: number,
+  extraProperties: string[] = [],
+): Promise<HubSpotContact[]> {
+  if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
+
+  const properties = [
+    'firstname', 'lastname', 'email', 'company', 'fax',
+    'hubspot_owner_id', 'estado_prospeccion_vol2', 'fecha_agendamiento',
+    ...extraProperties,
+  ];
+
+  const all: HubSpotContact[] = [];
+  let after: string | undefined;
+
+  do {
+    const body: Record<string, unknown> = {
+      filterGroups: [{
+        filters: [
+          { propertyName: 'fecha_agendamiento', operator: 'GTE', value: startMs.toString() },
+          { propertyName: 'fecha_agendamiento', operator: 'LT',  value: endMs.toString() },
+          { propertyName: 'estado_prospeccion_vol2', operator: 'IN', values: VALID_STATUSES },
+        ],
+      }],
+      properties,
+      limit: 100,
+    };
+    if (after) body.after = after;
+
+    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`HubSpot search error: ${res.status} - ${txt}`);
+    }
+
+    const data = await res.json();
+    all.push(...(data.results ?? []));
+    after = data.paging?.next?.after;
+  } while (after);
+
+  return all;
+}
+
 export interface HubSpotContact {
   id: string;
   properties: {
@@ -39,27 +132,16 @@ export interface HubSpotCompany {
  * Fetch contacts with meetings scheduled for today
  * Solo incluye contactos con estado válido: PR Agendada FONO, PR Agendada WTSP, Pr RE-Agendada
  */
-export async function getTodayMeetings() {
+export async function getTodayMeetings(dateStr?: string) {
   if (!ACCESS_TOKEN) {
     throw new Error('HUBSPOT_ACCESS_TOKEN no configurado en .env.local');
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayTimestamp = today.getTime();
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowTimestamp = tomorrow.getTime();
-
-  const validStatuses = [
-    'PR Agendada FONO',
-    'PR Agendada WTSP',
-    'Pr RE-Agendada'
-  ];
+  const { startMs: todayTimestamp, endMs: tomorrowTimestamp } = dateStr
+    ? getDateRangeForString(dateStr)
+    : getTodayRangeEST();
 
   try {
-    // Search contacts where proxima_reunion is today AND estado_prospeccion_vol2 is valid
     const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: {
@@ -70,7 +152,6 @@ export async function getTodayMeetings() {
         filterGroups: [
           {
             filters: [
-              // Próxima Reunión = HOY
               {
                 propertyName: 'proxima_reunion',
                 operator: 'GTE',
@@ -81,11 +162,10 @@ export async function getTodayMeetings() {
                 operator: 'LT',
                 value: tomorrowTimestamp.toString(),
               },
-              // Estado válido (OR entre los 3)
               {
                 propertyName: 'estado_prospeccion_vol2',
                 operator: 'IN',
-                values: validStatuses,
+                values: VALID_STATUSES,
               },
             ],
           },
@@ -95,14 +175,12 @@ export async function getTodayMeetings() {
           'lastname',
           'email',
           'company',
+          'fax',
           'hubspot_owner_id',
           'proxima_reunion',
           'estado_prospeccion_vol2',
           'ejecutivo_que_toma_la_reunion',
           'fecha_agendamiento',
-          'fecha_reunion',
-          'presentada',
-          'ocurrio_reunion',
         ],
         limit: 100,
       }),
@@ -121,30 +199,123 @@ export async function getTodayMeetings() {
   }
 }
 
+// Cache global de owners para toda la sesión del servidor
+let allOwnersCache: Map<string, HubSpotOwner> | null = null;
+
 /**
- * Fetch owner (SDR) details by ID
+ * Carga todos los owners de HubSpot de una vez (más eficiente, un solo request)
+ * Requiere scope crm.objects.owners.read
  */
-export async function getOwner(ownerId: string): Promise<HubSpotOwner | null> {
-  if (!ACCESS_TOKEN) {
-    throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
-  }
+export async function getAllOwners(): Promise<Map<string, HubSpotOwner>> {
+  if (allOwnersCache) return allOwnersCache;
+  if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
 
   try {
-    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners/${ownerId}`, {
-      headers: {
-        'Authorization': `Bearer ${ACCESS_TOKEN}`,
-      },
+    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners?limit=100`, {
+      headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}` },
     });
 
     if (!response.ok) {
-      console.error(`Error fetching owner ${ownerId}: ${response.status}`);
-      return null;
+      console.error(`Error fetching all owners: ${response.status}`);
+      allOwnersCache = new Map();
+      return allOwnersCache;
     }
 
-    return await response.json();
+    const data = await response.json();
+    allOwnersCache = new Map<string, HubSpotOwner>(
+      (data.results ?? []).map((o: HubSpotOwner) => [o.id, o])
+    );
+    return allOwnersCache;
   } catch (error) {
-    console.error(`Error fetching owner ${ownerId}:`, error);
-    return null;
+    console.error('Error fetching all owners:', error);
+    allOwnersCache = new Map();
+    return allOwnersCache;
+  }
+}
+
+/**
+ * Fetch owner (SDR) details by ID
+ * Usa el cache global para no hacer un request por cada contacto
+ */
+export async function getOwner(ownerId: string): Promise<HubSpotOwner | null> {
+  const owners = await getAllOwners();
+  return owners.get(ownerId) ?? null;
+}
+
+/**
+ * Fetch contacts where fecha_agendamiento = today (reuniones agendadas HOY por los SDRs)
+ * Filtra por estado_prospeccion_vol2 IN los 3 estados válidos
+ */
+export async function getTodayBookedMeetings(dateStr?: string) {
+  if (!ACCESS_TOKEN) {
+    throw new Error('HUBSPOT_ACCESS_TOKEN no configurado en .env.local');
+  }
+
+  const { startMs: todayTimestamp, endMs: tomorrowTimestamp } = dateStr
+    ? getDateRangeForString(dateStr)
+    : getTodayRangeEST();
+
+  const validStatuses = [
+    'PR Agendada',
+    'PR Agendada FONO',
+    'PR Agendada WTSP',
+    'Pr RE-Agendada',
+  ];
+
+  try {
+    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filterGroups: [
+          {
+            filters: [
+              {
+                propertyName: 'fecha_agendamiento',
+                operator: 'GTE',
+                value: todayTimestamp.toString(),
+              },
+              {
+                propertyName: 'fecha_agendamiento',
+                operator: 'LT',
+                value: tomorrowTimestamp.toString(),
+              },
+              {
+                propertyName: 'estado_prospeccion_vol2',
+                operator: 'IN',
+                values: validStatuses,
+              },
+            ],
+          },
+        ],
+        properties: [
+          'firstname',
+          'lastname',
+          'email',
+          'company',
+          'hubspot_owner_id',
+          'proxima_reunion',
+          'estado_prospeccion_vol2',
+          'ejecutivo_que_toma_la_reunion',
+          'fecha_agendamiento',
+        ],
+        limit: 100,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HubSpot API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.results as HubSpotContact[];
+  } catch (error) {
+    console.error('Error fetching today booked meetings:', error);
+    throw error;
   }
 }
 

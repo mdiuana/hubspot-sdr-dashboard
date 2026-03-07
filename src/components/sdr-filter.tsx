@@ -10,25 +10,29 @@ export function SDRFilter({
 }: {
   sdrs: SDR[]
   selected: string | null
-  onChange: (email: string | null) => void
+  onChange: (id: string | null) => void
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <Users className="h-4 w-4 text-muted-foreground" />
+      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
       <button
         onClick={() => onChange(null)}
-        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-          !selected ? "bg-primary text-white" : "bg-secondary hover:bg-secondary/80"
+        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+          !selected
+            ? "bg-primary text-white shadow-sm shadow-primary/30"
+            : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
         }`}
       >
         Todos
       </button>
       {sdrs.map(sdr => (
         <button
-          key={sdr.email}
-          onClick={() => onChange(sdr.email === selected ? null : sdr.email)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            selected === sdr.email ? "bg-primary text-white" : "bg-secondary hover:bg-secondary/80"
+          key={sdr.id}
+          onClick={() => onChange(sdr.id === selected ? null : sdr.id)}
+          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+            selected === sdr.id
+              ? "bg-primary text-white shadow-sm shadow-primary/30"
+              : "bg-secondary text-secondary-foreground hover:bg-secondary/70"
           }`}
         >
           {sdr.name.split(" ")[0]}

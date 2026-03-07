@@ -5,10 +5,11 @@ export interface Meeting {
     name: string
     email: string
     company: string
+    fax?: string // Número de fax = cliente
   }
   sdr: SDR
-  status: string // Estado de prospección (PR Agendada FONO, PR Agendada WTSP, Pr RE-Agendada)
-  notes: string // Ejecutivo + fecha agendamiento
+  status: string
+  notes: string
   meetingLink?: string
   ejecutivo?: string // EJECUTIVO QUE TOMA LA REUNION
   fechaAgendamiento?: string // FECHA AGENDAMIENTO (ISO)
