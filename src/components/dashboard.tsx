@@ -6,7 +6,7 @@ import { ClientStats } from "./client-stats"
 import { SDRChart, SDRCount } from "./sdr-chart"
 import { MeetingsTable } from "./meetings-table"
 import { SeguimientoSDR } from "./seguimiento-sdr"
-import { Leaderboard } from "./leaderboard"
+import { Leaderboard, RankEntry } from "./leaderboard"
 import { ThemeToggle } from "./theme-toggle"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -42,8 +42,10 @@ export function Dashboard() {
   const [agendadas, setAgendadas] = useState<AgendadasData>({ total: 0, bySDR: [], meetings: [], scopeMissing: false })
   const [agendadasLoading, setAgendadasLoading] = useState(false)
   const [selectedSDR, setSelectedSDR] = useState<string | null>(null)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-  const [refreshing, setRefreshing]   = useState(false)
+  const [lastRefresh, setLastRefresh]   = useState<Date | null>(null)
+  const [refreshing, setRefreshing]     = useState(false)
+  const [ranking, setRanking]           = useState<RankEntry[]>([])
+  const [rankingLoading, setRankingLoading] = useState(true)
 
   useEffect(() => { setSelectedDate(getTodayEST()) }, [])
 
@@ -68,10 +70,21 @@ export function Dashboard() {
     finally { setAgendadasLoading(false) }
   }
 
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch("/api/leaderboard")
+      const data = await res.json()
+      if (data.success) setRanking(data.ranking)
+    } catch (e) { console.error(e) }
+    finally { setRankingLoading(false) }
+  }
+
   useEffect(() => { fetchTodayMeetings() }, [])
   useEffect(() => { const t = setInterval(fetchTodayMeetings, 60_000); return () => clearInterval(t) }, [])
   useEffect(() => { if (selectedDate) fetchAgendadas(selectedDate) }, [selectedDate])
   useEffect(() => { if (selectedDate) { const t = setInterval(() => fetchAgendadas(selectedDate), 60_000); return () => clearInterval(t) } }, [selectedDate])
+  useEffect(() => { fetchLeaderboard() }, [])
+  useEffect(() => { const t = setInterval(fetchLeaderboard, 60_000); return () => clearInterval(t) }, [])
 
   const sdrs = useMemo(() => {
     const map = new Map<string, SDR>()
@@ -128,7 +141,7 @@ export function Dashboard() {
                 )}
                 <ThemeToggle />
                 <button
-                  onClick={() => { fetchTodayMeetings(); if (selectedDate) fetchAgendadas(selectedDate) }}
+                  onClick={() => { fetchTodayMeetings(); if (selectedDate) fetchAgendadas(selectedDate); fetchLeaderboard() }}
                   disabled={refreshing}
                   className="btn-press glass-sm rounded-xl p-2.5 disabled:opacity-40"
                   title="Actualizar"
@@ -220,7 +233,7 @@ export function Dashboard() {
 
               {/* Leaderboard — 20% */}
               <div style={{ flex: 1, minWidth: 140, maxWidth: 240, height: "100%", overflow: "hidden" }}>
-                <Leaderboard />
+                <Leaderboard ranking={ranking} loading={rankingLoading} />
               </div>
             </div>
 

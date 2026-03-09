@@ -1,8 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-
-interface RankEntry {
+export interface RankEntry {
   id: string
   name: string
   email: string
@@ -25,17 +23,12 @@ const RANK_COLORS = [
   "from-rose-500 to-pink-600",
 ]
 
-export function Leaderboard() {
-  const [ranking, setRanking] = useState<RankEntry[]>([])
-  const [loading, setLoading] = useState(true)
+interface LeaderboardProps {
+  ranking: RankEntry[]
+  loading: boolean
+}
 
-  useEffect(() => {
-    fetch("/api/leaderboard")
-      .then(r => r.json())
-      .then(data => { if (data.success) setRanking(data.ranking) })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+export function Leaderboard({ ranking, loading }: LeaderboardProps) {
 
   const top = ranking[0]
   const rest = ranking.slice(1)

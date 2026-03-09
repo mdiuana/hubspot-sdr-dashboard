@@ -49,6 +49,8 @@ export async function getContactsByDateRange(
   startMs: number,
   endMs: number,
   extraProperties: string[] = [],
+  filterByStatus = true,
+  dateField: 'fecha_agendamiento' | 'proxima_reunion' = 'fecha_agendamiento',
 ): Promise<HubSpotContact[]> {
   if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
 
@@ -58,6 +60,57 @@ export async function getContactsByDateRange(
     ...extraProperties,
   ];
 
+  const baseFilters: Record<string, unknown>[] = [
+    { propertyName: dateField, operator: 'GTE', value: startMs.toString() },
+    { propertyName: dateField, operator: 'LT',  value: endMs.toString() },
+  ];
+  if (filterByStatus) {
+    baseFilters.push({ propertyName: 'estado_prospeccion_vol2', operator: 'IN', values: VALID_STATUSES });
+  }
+
+  const all: HubSpotContact[] = [];
+  let after: string | undefined;
+
+  do {
+    const body: Record<string, unknown> = {
+      filterGroups: [{ filters: baseFilters }],
+      properties,
+      limit: 100,
+    };
+    if (after) body.after = after;
+
+    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`HubSpot search error: ${res.status} - ${txt}`);
+    }
+
+    const data = await res.json();
+    all.push(...(data.results ?? []));
+    after = data.paging?.next?.after;
+  } while (after);
+
+  return all;
+}
+
+/**
+ * Contactos modificados recientemente con estado de reunión válido.
+ * Combina filtro de hs_lastmodifieddate (se indexa más rápido que propiedades custom)
+ * con estado válido para mantener el resultado pequeño y la query rápida.
+ */
+export async function getRecentlyModifiedContacts(sinceMs: number): Promise<HubSpotContact[]> {
+  if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
+
+  const properties = [
+    'firstname', 'lastname', 'email', 'company', 'fax',
+    'hubspot_owner_id', 'estado_prospeccion_vol2', 'fecha_agendamiento',
+  ];
+
   const all: HubSpotContact[] = [];
   let after: string | undefined;
 
@@ -65,8 +118,7 @@ export async function getContactsByDateRange(
     const body: Record<string, unknown> = {
       filterGroups: [{
         filters: [
-          { propertyName: 'fecha_agendamiento', operator: 'GTE', value: startMs.toString() },
-          { propertyName: 'fecha_agendamiento', operator: 'LT',  value: endMs.toString() },
+          { propertyName: 'hs_lastmodifieddate', operator: 'GTE', value: sinceMs.toString() },
           { propertyName: 'estado_prospeccion_vol2', operator: 'IN', values: VALID_STATUSES },
         ],
       }],
@@ -199,20 +251,23 @@ export async function getTodayMeetings(dateStr?: string) {
   }
 }
 
-// Cache global de owners para toda la sesión del servidor
+// Cache global de owners con TTL de 5 minutos
 let allOwnersCache: Map<string, HubSpotOwner> | null = null;
+let allOwnersCacheTime = 0;
+const OWNERS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Carga todos los owners de HubSpot de una vez (más eficiente, un solo request)
  * Requiere scope crm.objects.owners.read
  */
 export async function getAllOwners(): Promise<Map<string, HubSpotOwner>> {
-  if (allOwnersCache) return allOwnersCache;
+  if (allOwnersCache && Date.now() - allOwnersCacheTime < OWNERS_CACHE_TTL_MS) return allOwnersCache;
   if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
 
   try {
     const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners?limit=100`, {
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}` },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -225,6 +280,7 @@ export async function getAllOwners(): Promise<Map<string, HubSpotOwner>> {
     allOwnersCache = new Map<string, HubSpotOwner>(
       (data.results ?? []).map((o: HubSpotOwner) => [o.id, o])
     );
+    allOwnersCacheTime = Date.now();
     return allOwnersCache;
   } catch (error) {
     console.error('Error fetching all owners:', error);
