@@ -129,34 +129,38 @@ export function SDRChart({
                 className="flex flex-col items-center gap-1 flex-1 min-w-0"
                 style={{ height: `${H + 36}px` }}
               >
-                {/* Corona + número */}
-                <div className="flex flex-col items-center gap-0.5">
-                  {isWinner && (
-                    <svg
-                      viewBox="0 0 20 13"
-                      className="w-4 h-3 shrink-0"
-                      style={{
-                        animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
-                      }}
-                    >
-                      <path d="M1 11 L4.5 3.5 L10 8.5 L15.5 1 L19 11 Z" fill="#facc15" stroke="#b45309" strokeWidth="0.7" strokeLinejoin="round" />
-                      <circle cx="1"   cy="11.5" r="1.3" fill="#facc15" />
-                      <circle cx="10"  cy="9"    r="1.3" fill="#facc15" />
-                      <circle cx="19"  cy="11.5" r="1.3" fill="#facc15" />
-                    </svg>
-                  )}
-                  <span
-                    className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-base" : "text-sm"} ${labelColor}`}
-                    style={{ animationDelay: `${i * 70 + 350}ms` }}
-                  >
-                    {sdr.count}
-                  </span>
-                </div>
-
-                {/* Barra */}
-                <div className="w-full flex items-end" style={{ height: `${H}px` }}>
+                {/* Barra + número flotando encima */}
+                <div className="relative w-full" style={{ height: `${H}px` }}>
+                  {/* Número + corona: posicionado justo sobre la punta de la barra */}
                   <div
-                    className={`w-full ${color} ${isWinner ? "rounded-t-2xl" : "rounded-xl bar-animate"}`}
+                    className="absolute left-0 right-0 flex flex-col items-center pointer-events-none"
+                    style={{ bottom: `calc(${pct}% + 4px)` }}
+                  >
+                    {isWinner && (
+                      <svg
+                        viewBox="0 0 20 13"
+                        className="w-4 h-3 shrink-0"
+                        style={{
+                          animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
+                        }}
+                      >
+                        <path d="M1 11 L4.5 3.5 L10 8.5 L15.5 1 L19 11 Z" fill="#facc15" stroke="#b45309" strokeWidth="0.7" strokeLinejoin="round" />
+                        <circle cx="1"   cy="11.5" r="1.3" fill="#facc15" />
+                        <circle cx="10"  cy="9"    r="1.3" fill="#facc15" />
+                        <circle cx="19"  cy="11.5" r="1.3" fill="#facc15" />
+                      </svg>
+                    )}
+                    <span
+                      className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-base" : "text-sm"} ${labelColor}`}
+                      style={{ animationDelay: `${i * 70 + 350}ms`, lineHeight: 1 }}
+                    >
+                      {sdr.count}
+                    </span>
+                  </div>
+
+                  {/* Barra */}
+                  <div
+                    className={`absolute bottom-0 left-0 right-0 ${color} ${isWinner ? "rounded-t-2xl" : "rounded-xl bar-animate"}`}
                     style={{
                       height: `${pct}%`,
                       ...(isWinner
@@ -227,34 +231,35 @@ export function SDRChart({
           return (
             <div key={sdr.sdrId} className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
 
-              {/* Zona superior fija — igual altura para TODAS las columnas.
-                  Label + corona van aquí, alineados al fondo de la zona. */}
-              <div className="h-14 w-full flex flex-col items-center justify-end shrink-0 pb-1">
-                {isWinner && (
-                  <svg
-                    viewBox="0 0 24 16"
-                    className="w-6 h-4 shrink-0 mb-0.5"
-                    style={{
-                      animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
-                      filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))",
-                    }}
-                  >
-                    <path d="M1,15 L1,8 L5,2 L7,8 L12,0 L17,8 L19,2 L23,8 L23,15 Z" fill="#facc15" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
-                    <rect x="1" y="12" width="22" height="3" rx="1" fill="#f59e0b" />
-                  </svg>
-                )}
-                <span
-                  className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-xl" : "text-base"} ${labelColor}`}
-                  style={{ animationDelay: `${i * 70 + 350}ms`, lineHeight: 1 }}
-                >
-                  {sdr.count}
-                </span>
-              </div>
-
-              {/* Área de barra — flex-1, la barra crece desde el fondo con posición absoluta.
-                  Así height: pct% es SIEMPRE relativo al área disponible real, sin que el
-                  label interfiera con el cálculo proporcional. */}
+              {/* Área de barra — el número flota justo encima con absolute */}
               <div className="flex-1 min-h-0 w-full relative">
+                {/* Número + corona: posicionado justo sobre la punta de la barra */}
+                <div
+                  className="absolute left-0 right-0 flex flex-col items-center pointer-events-none"
+                  style={{ bottom: `calc(${pct}% + 6px)` }}
+                >
+                  {isWinner && (
+                    <svg
+                      viewBox="0 0 24 16"
+                      className="w-6 h-4 shrink-0 mb-0.5"
+                      style={{
+                        animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
+                        filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))",
+                      }}
+                    >
+                      <path d="M1,15 L1,8 L5,2 L7,8 L12,0 L17,8 L19,2 L23,8 L23,15 Z" fill="#facc15" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
+                      <rect x="1" y="12" width="22" height="3" rx="1" fill="#f59e0b" />
+                    </svg>
+                  )}
+                  <span
+                    className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-xl" : "text-base"} ${labelColor}`}
+                    style={{ animationDelay: `${i * 70 + 350}ms`, lineHeight: 1 }}
+                  >
+                    {sdr.count}
+                  </span>
+                </div>
+
+                {/* Barra */}
                 <div
                   className={`absolute bottom-0 left-0 right-0 ${color} rounded-2xl`}
                   style={{
