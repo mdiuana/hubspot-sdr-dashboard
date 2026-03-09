@@ -190,12 +190,16 @@ export function SDRChart({
   const renderBarsFullscreen = () => {
     if (loading) {
       return (
-        <div className="flex items-end gap-4 h-full pl-4">
+        <div className="flex items-stretch gap-3 sm:gap-6 h-full pl-4">
           {[55, 35, 80, 50, 25, 65, 40].map((h, i) => (
-            <div key={i} className="flex flex-col items-center gap-2 flex-1 min-w-0 h-full justify-end">
-              <div className="h-4 w-12 skeleton" />
-              <div className="w-full skeleton rounded-2xl" style={{ height: `${h}%` }} />
-              <div className="h-3 w-16 skeleton" />
+            <div key={i} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+              <div className="h-14 w-full flex items-end justify-center pb-1 shrink-0">
+                <div className="h-4 w-8 skeleton rounded" />
+              </div>
+              <div className="flex-1 min-h-0 w-full relative">
+                <div className="absolute bottom-0 left-0 right-0 skeleton rounded-2xl" style={{ height: `${h}%` }} />
+              </div>
+              <div className="h-3 w-12 skeleton rounded shrink-0" />
             </div>
           ))}
         </div>
@@ -212,54 +216,49 @@ export function SDRChart({
     }
 
     return (
-      <div className="flex items-stretch gap-4 sm:gap-8 h-full pl-4">
+      <div className="flex items-stretch gap-3 sm:gap-6 h-full pl-4">
         {bySDR.map((sdr, i) => {
-          const pct      = Math.round((sdr.count / max) * 100)
-          const color    = BAR_COLORS[i % BAR_COLORS.length]
+          const pct        = Math.round((sdr.count / max) * 100)
+          const color      = BAR_COLORS[i % BAR_COLORS.length]
           const labelColor = LABEL_COLORS[i % LABEL_COLORS.length]
-          const glow     = BAR_GLOWS[i % BAR_GLOWS.length]
-          const isWinner = sdr.count === max
-
-          // Espacio reservado en el tope para label+corona
-          const topReserve = isWinner ? 56 : 36
+          const glow       = BAR_GLOWS[i % BAR_GLOWS.length]
+          const isWinner   = sdr.count === max
 
           return (
-            <div key={sdr.sdrId} className="flex-1 min-w-0 flex flex-col items-center gap-2">
+            <div key={sdr.sdrId} className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
 
-              {/* Área de la barra: flex column proporcional */}
-              <div className="flex-1 w-full flex flex-col min-h-0" style={{ paddingTop: topReserve }}>
-
-                {/* Spacer proporcional al espacio vacío sobre la barra */}
-                <div style={{ flex: 100 - pct, minHeight: 0 }} />
-
-                {/* Label justo encima de la barra */}
-                <div className="flex flex-col items-center pb-1.5 shrink-0">
-                  {isWinner && (
-                    <svg
-                      viewBox="0 0 24 16"
-                      className="w-7 h-5 shrink-0 mb-0.5"
-                      style={{
-                        animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
-                        filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))",
-                      }}
-                    >
-                      <path d="M1,15 L1,8 L5,2 L7,8 L12,0 L17,8 L19,2 L23,8 L23,15 Z" fill="#facc15" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
-                      <rect x="1" y="12" width="22" height="3" rx="1" fill="#f59e0b" />
-                    </svg>
-                  )}
-                  <span
-                    className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-2xl" : "text-lg"} ${labelColor}`}
-                    style={{ animationDelay: `${i * 70 + 350}ms`, lineHeight: 1 }}
+              {/* Zona superior fija — igual altura para TODAS las columnas.
+                  Label + corona van aquí, alineados al fondo de la zona. */}
+              <div className="h-14 w-full flex flex-col items-center justify-end shrink-0 pb-1">
+                {isWinner && (
+                  <svg
+                    viewBox="0 0 24 16"
+                    className="w-6 h-4 shrink-0 mb-0.5"
+                    style={{
+                      animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
+                      filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))",
+                    }}
                   >
-                    {sdr.count}
-                  </span>
-                </div>
+                    <path d="M1,15 L1,8 L5,2 L7,8 L12,0 L17,8 L19,2 L23,8 L23,15 Z" fill="#facc15" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
+                    <rect x="1" y="12" width="22" height="3" rx="1" fill="#f59e0b" />
+                  </svg>
+                )}
+                <span
+                  className={`font-black tabular-nums animate-fade-in-up ${isWinner ? "text-xl" : "text-base"} ${labelColor}`}
+                  style={{ animationDelay: `${i * 70 + 350}ms`, lineHeight: 1 }}
+                >
+                  {sdr.count}
+                </span>
+              </div>
 
-                {/* Barra */}
+              {/* Área de barra — flex-1, la barra crece desde el fondo con posición absoluta.
+                  Así height: pct% es SIEMPRE relativo al área disponible real, sin que el
+                  label interfiera con el cálculo proporcional. */}
+              <div className="flex-1 min-h-0 w-full relative">
                 <div
-                  className={`w-full ${color} rounded-2xl shrink-0`}
+                  className={`absolute bottom-0 left-0 right-0 ${color} rounded-2xl`}
                   style={{
-                    flex: pct,
+                    height: `${pct}%`,
                     ...(isWinner
                       ? {
                           '--glow-c': glow,
@@ -273,12 +272,13 @@ export function SDRChart({
 
               {/* Nombre */}
               <span
-                className={`text-sm text-center shrink-0 truncate w-full animate-fade-in-up ${isWinner ? "font-bold text-foreground" : "font-semibold text-muted-foreground"}`}
+                className={`text-xs sm:text-sm text-center shrink-0 truncate w-full animate-fade-in-up ${isWinner ? "font-bold text-foreground" : "font-semibold text-muted-foreground"}`}
                 title={sdr.sdrName}
                 style={{ animationDelay: `${i * 70 + 450}ms` }}
               >
-                {sdr.sdrName.split(" ").slice(0, 2).join(" ")}
+                {sdr.sdrName.split(" ")[0]}
               </span>
+
             </div>
           )
         })}
@@ -287,35 +287,35 @@ export function SDRChart({
   }
 
   const cardHeader = (
-    <div className="flex items-start justify-between gap-4 flex-wrap shrink-0">
-      <div className="flex items-center gap-3">
-        <div className="rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 p-2 shadow-md shadow-violet-500/25">
+    <div className="flex items-center justify-between gap-2 shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 p-2 shadow-md shadow-violet-500/25 shrink-0">
           <BarChart2 className="h-4 w-4 text-white" />
         </div>
-        <div>
-          <h2 className="text-sm font-bold leading-tight">Reuniones Agendadas por SDR</h2>
-          <p className="text-xs text-muted-foreground">
-            {scopeMissing ? "Sin permisos de owners — mostrando por ID" : "Reuniones agendadas en la fecha seleccionada"}
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold leading-tight truncate">Reuniones por SDR</h2>
+          <p className="text-xs text-muted-foreground hidden sm:block">
+            {scopeMissing ? "Sin permisos de owners" : "Fecha seleccionada"}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 glass-sm rounded-xl px-3.5 py-2">
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 glass-sm rounded-xl px-2.5 py-1.5">
           <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <input
             type="date"
             value={selectedDate}
             onChange={e => onDateChange(e.target.value)}
-            className="text-xs font-semibold bg-transparent border-none outline-none cursor-pointer text-foreground"
+            className="text-xs font-semibold bg-transparent border-none outline-none cursor-pointer text-foreground w-[105px]"
           />
         </div>
 
-        <div className="text-right">
+        <div className="text-right shrink-0">
           {loading
-            ? <Loader2 className="h-6 w-6 animate-spin text-primary ml-auto" />
+            ? <Loader2 className="h-5 w-5 animate-spin text-primary ml-auto" />
             : <>
-                <p className="text-4xl font-black tabular-nums leading-none bg-gradient-to-br from-blue-500 to-indigo-600 bg-clip-text text-transparent animate-scale-pop">
+                <p className="text-2xl lg:text-4xl font-black tabular-nums leading-none bg-gradient-to-br from-blue-500 to-indigo-600 bg-clip-text text-transparent animate-scale-pop">
                   {total}
                 </p>
                 <p className="text-[10px] text-muted-foreground font-semibold tracking-wider uppercase">total</p>
@@ -325,7 +325,7 @@ export function SDRChart({
 
         <button
           onClick={() => setFullscreen(true)}
-          className="btn-press glass-sm rounded-xl p-2.5 shrink-0"
+          className="btn-press glass-sm rounded-xl p-2 shrink-0"
           title="Pantalla completa"
         >
           <Maximize2 className="h-4 w-4 text-muted-foreground" />

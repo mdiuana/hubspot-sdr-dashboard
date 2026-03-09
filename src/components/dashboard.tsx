@@ -199,13 +199,14 @@ export function Dashboard() {
             <div
               style={{
                 height: "calc(100svh - 68px - 1rem - 1rem - 230px - 1rem)",
-                minHeight: 240,
+                minHeight: 260,
                 display: "flex",
                 gap: "1rem",
+                overflow: "hidden",
               }}
             >
               {/* Chart — 80% */}
-              <div style={{ flex: 4, minWidth: 0, height: "100%" }}>
+              <div style={{ flex: 4, minWidth: 0, height: "100%", overflow: "hidden" }}>
                 <SDRChart
                   bySDR={agendadas.bySDR}
                   total={agendadas.total}
@@ -218,7 +219,7 @@ export function Dashboard() {
               </div>
 
               {/* Leaderboard — 20% */}
-              <div style={{ flex: 1, minWidth: 150, height: "100%" }}>
+              <div style={{ flex: 1, minWidth: 140, maxWidth: 240, height: "100%", overflow: "hidden" }}>
                 <Leaderboard />
               </div>
             </div>

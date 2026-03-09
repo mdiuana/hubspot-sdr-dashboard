@@ -41,7 +41,7 @@ export function Leaderboard() {
   const rest = ranking.slice(1)
 
   return (
-    <div className="glass rounded-2xl p-4 flex flex-col gap-3 h-full">
+    <div className="glass rounded-2xl p-4 flex flex-col gap-3 h-full overflow-hidden">
       <h2 className="text-xs font-black tracking-widest uppercase text-muted-foreground">Leaderboard</h2>
 
       {loading ? (
@@ -53,21 +53,21 @@ export function Leaderboard() {
       ) : ranking.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-6">Sin datos este mes</p>
       ) : (
-        <div className="flex flex-col gap-2 flex-1">
+        <div className="flex flex-col gap-2 flex-1 min-w-0 overflow-hidden">
           {/* #1 — destacado */}
           {top && (
-            <div className={`relative rounded-xl p-3 bg-gradient-to-br ${RANK_COLORS[0]} shadow-md shadow-indigo-500/20 animate-fade-in-up`}>
-              <div className="flex items-center gap-2.5">
+            <div className={`relative rounded-xl p-3 bg-gradient-to-br ${RANK_COLORS[0]} shadow-md shadow-indigo-500/20 animate-fade-in-up shrink-0`}>
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="h-8 w-8 rounded-lg bg-white/25 flex items-center justify-center shrink-0 ring-2 ring-white/30 text-xs font-black text-white">
                   {getInitials(top.name)}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-white font-black text-sm leading-tight truncate">
                     {getFirstName(top.name)} 🐐
                   </p>
                   <p className="text-white/70 text-[11px] font-medium">{top.count} agendadas</p>
                 </div>
-                <span className="text-white/30 text-[10px] font-black">#1</span>
+                <span className="text-white/30 text-[10px] font-black shrink-0">#1</span>
               </div>
             </div>
           )}
@@ -79,7 +79,7 @@ export function Leaderboard() {
             return (
               <div
                 key={entry.id}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 glass-sm animate-fade-in-up"
+                className="flex items-center gap-2 rounded-xl px-2.5 py-2 glass-sm animate-fade-in-up min-w-0 overflow-hidden shrink-0"
                 style={{ animationDelay: `${pos * 60}ms` }}
               >
                 <span className="text-[10px] font-black text-muted-foreground/50 w-4 shrink-0 text-right">
@@ -89,7 +89,7 @@ export function Leaderboard() {
                   {getInitials(entry.name)}
                 </div>
                 <p className="flex-1 text-sm font-semibold truncate min-w-0">{getFirstName(entry.name)}</p>
-                <span className="text-xs font-black tabular-nums text-muted-foreground">{entry.count}</span>
+                <span className="text-xs font-black tabular-nums text-muted-foreground shrink-0">{entry.count}</span>
               </div>
             )
           })}

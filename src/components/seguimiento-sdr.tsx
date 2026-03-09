@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Meeting } from "@/types/meeting"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Clock, Briefcase, Building2, Check, CalendarDays } from "lucide-react"
+import { Clock, Briefcase, Building2, Check, CalendarDays, ChevronDown, Mail, Phone, FileText, ExternalLink, CalendarCheck } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,8 @@ function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n =>
 
 function MeetingRow({ meeting, index, selectedDate }: { meeting: Meeting; index: number; selectedDate: string }) {
   const [done, setDone] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
   useEffect(() => {
     try { setDone(localStorage.getItem(doneKey(selectedDate, meeting.id)) === "1") } catch {}
   }, [selectedDate, meeting.id])
@@ -61,6 +63,8 @@ function MeetingRow({ meeting, index, selectedDate }: { meeting: Meeting; index:
   const isNow = diff < 30 * 60 * 1000
   const isPast = meetingTime < now && !isNow
 
+  const hasExtra = !!(meeting.contact.email || meeting.contact.fax || meeting.notes || meeting.meetingLink || meeting.fechaAgendamiento)
+
   return (
     <div
       className={`relative rounded-2xl card-lift animate-fade-in-up transition-all duration-300 glass-sm overflow-hidden ${
@@ -75,63 +79,131 @@ function MeetingRow({ meeting, index, selectedDate }: { meeting: Meeting; index:
       {/* Live glow */}
       {isNow && !done && <div className="absolute inset-0 rounded-2xl ring-1 ring-primary/20 animate-glow pointer-events-none" />}
 
-      <div className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Time */}
-            <div className={`shrink-0 text-center min-w-[44px] pl-2 ${done ? "opacity-50" : ""}`}>
-              <p className={`text-xl font-black tabular-nums leading-none ${isNow && !done ? "text-primary" : ""}`}>
-                {format(meetingTime, "HH:mm")}
-              </p>
-              <p className="text-[10px] text-muted-foreground capitalize font-medium">
-                {format(meetingTime, "d MMM", { locale: es })}
-              </p>
-            </div>
+      <div className="p-3 space-y-2.5">
 
-            <div className="w-px h-9 bg-border/60 shrink-0" />
+        {/* ── Fila 1: tiempo | nombre + acciones ── */}
+        <div className="flex items-start gap-2.5">
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className={`font-bold text-sm leading-tight truncate ${done ? "line-through text-muted-foreground" : ""}`}>
-                  {meeting.contact.name}
-                </p>
+          {/* Bloque de hora — ancho fijo */}
+          <div className={`shrink-0 text-center w-10 ${done ? "opacity-50" : ""}`}>
+            <p className={`text-base font-black tabular-nums leading-none ${isNow && !done ? "text-primary" : ""}`}>
+              {format(meetingTime, "HH:mm")}
+            </p>
+            <p className="text-[9px] text-muted-foreground capitalize font-medium mt-0.5 leading-none">
+              {format(meetingTime, "d MMM", { locale: es })}
+            </p>
+          </div>
+
+          <div className="w-px self-stretch bg-border/60 shrink-0" />
+
+          {/* Nombre + empresa — ocupa todo el espacio disponible */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-1.5">
+              <p className={`font-bold text-sm leading-tight break-words ${done ? "line-through text-muted-foreground" : ""}`}>
+                {meeting.contact.name}
                 {isNow && !done && (
-                  <span className="rounded-full bg-primary text-white text-[9px] px-1.5 py-0.5 font-black animate-pulse leading-none shrink-0">
+                  <span className="ml-1.5 inline-flex rounded-full bg-primary text-white text-[9px] px-1.5 py-0.5 font-black animate-pulse leading-none align-middle">
                     EN VIVO
                   </span>
                 )}
-              </div>
-              {meeting.contact.company && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                  <Building2 className="h-3 w-3 shrink-0" />
-                  {meeting.contact.company}
-                </span>
-              )}
-            </div>
-          </div>
+              </p>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${getStatusStyle(meeting.status)}`}>
-              {meeting.status}
-            </span>
-            <button
-              onClick={handleToggle}
-              title={done ? "Desmarcar" : "Marcar completada"}
-              className={`btn-press h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                done
-                  ? "bg-emerald-500 border-emerald-500 text-white"
-                  : "border-border text-transparent hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10"
-              }`}
-            >
-              <Check className="h-3.5 w-3.5" strokeWidth={3} />
-            </button>
+              {/* Botones de acción — pegados a la derecha del nombre */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={handleToggle}
+                  title={done ? "Desmarcar" : "Marcar completada"}
+                  className={`btn-press h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                    done
+                      ? "bg-emerald-500 border-emerald-500 text-white"
+                      : "border-border text-transparent hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10"
+                  }`}
+                >
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </button>
+                {hasExtra && (
+                  <button
+                    onClick={() => setExpanded(v => !v)}
+                    title={expanded ? "Ocultar detalles" : "Ver detalles"}
+                    className={`btn-press h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                      expanded
+                        ? "border-primary/50 text-primary bg-primary/10"
+                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {meeting.contact.company && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 leading-tight">
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{meeting.contact.company}</span>
+              </p>
+            )}
           </div>
         </div>
 
-        {meeting.ejecutivo && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground border-t border-border/40 pt-2.5">
-            <Briefcase className="h-3.5 w-3.5 shrink-0" />
-            <span>Ejecutivo: <span className="font-bold text-foreground">{meeting.ejecutivo}</span></span>
+        {/* ── Fila 2: badge de estado + ejecutivo ── */}
+        <div className="flex items-center gap-2 flex-wrap border-t border-border/40 pt-2">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${getStatusStyle(meeting.status)}`}>
+            {meeting.status}
+          </span>
+          {meeting.ejecutivo && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Briefcase className="h-3 w-3 shrink-0" />
+              <span className="truncate">{meeting.ejecutivo}</span>
+            </span>
+          )}
+        </div>
+
+        {/* ── Expanded details ── */}
+        {expanded && hasExtra && (
+          <div className="border-t border-border/40 pt-2.5 space-y-2 animate-fade-in-up">
+            {meeting.contact.email && (
+              <div className="flex items-start gap-2 text-xs">
+                <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                <a href={`mailto:${meeting.contact.email}`} className="text-primary hover:underline break-all font-medium">
+                  {meeting.contact.email}
+                </a>
+              </div>
+            )}
+            {meeting.contact.fax && (
+              <div className="flex items-center gap-2 text-xs">
+                <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="text-foreground font-medium">{meeting.contact.fax}</span>
+              </div>
+            )}
+            {meeting.fechaAgendamiento && (
+              <div className="flex items-start gap-2 text-xs">
+                <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                <span className="text-muted-foreground leading-snug">
+                  Agendado:{" "}
+                  <span className="text-foreground font-medium">
+                    {format(new Date(meeting.fechaAgendamiento), "d MMM yyyy, HH:mm", { locale: es })}
+                  </span>
+                </span>
+              </div>
+            )}
+            {meeting.notes && (
+              <div className="flex items-start gap-2 text-xs">
+                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                <p className="text-muted-foreground leading-relaxed break-words whitespace-pre-wrap">{meeting.notes}</p>
+              </div>
+            )}
+            {meeting.meetingLink && (
+              <a
+                href={meeting.meetingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs font-bold text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                Abrir enlace de reunión
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -166,7 +238,7 @@ function SDRSection({ sdrName, meetings, colorIndex, sectionIndex, selectedDate 
       </div>
 
       {/* Meeting grid */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {sorted.map((m, i) => <MeetingRow key={m.id} meeting={m} index={i} selectedDate={selectedDate} />)}
       </div>
     </div>
@@ -181,7 +253,7 @@ function FollowSkeleton() {
       {[0, 1].map(i => (
         <div key={i} className="space-y-3 animate-fade-in-up" style={{ animationDelay: `${i * 80}ms` }}>
           <div className="h-16 rounded-2xl skeleton" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {[0, 1, 2, 3].map(j => (
               <div key={j} className="h-28 rounded-2xl skeleton" style={{ animationDelay: `${j * 40}ms` }} />
             ))}
