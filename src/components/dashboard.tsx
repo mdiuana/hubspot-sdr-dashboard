@@ -71,6 +71,7 @@ export function Dashboard() {
   useEffect(() => { fetchTodayMeetings() }, [])
   useEffect(() => { const t = setInterval(fetchTodayMeetings, 60_000); return () => clearInterval(t) }, [])
   useEffect(() => { if (selectedDate) fetchAgendadas(selectedDate) }, [selectedDate])
+  useEffect(() => { if (selectedDate) { const t = setInterval(() => fetchAgendadas(selectedDate), 5 * 60_000); return () => clearInterval(t) } }, [selectedDate])
 
   const sdrs = useMemo(() => {
     const map = new Map<string, SDR>()
