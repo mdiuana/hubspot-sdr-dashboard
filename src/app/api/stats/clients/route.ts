@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       }
       const row = clientMap.get(name)!;
       row.agendadas++;
-      if (contact.properties.nm_presentada_2 === 'SI') row.presentadas++;
+      if (contact.properties.nm_presentada_2 === 'Sí') row.presentadas++;
     }
 
     const clients = Array.from(clientMap.values())

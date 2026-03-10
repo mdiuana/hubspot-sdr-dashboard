@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       }
 
       // Presentadas
-      if (contact.properties.nm_presentada_2 === 'SI') {
+      if (contact.properties.nm_presentada_2 === 'Sí') {
         if (presentadasMap.has(ownerId)) {
           presentadasMap.get(ownerId)!.count++;
         } else {
