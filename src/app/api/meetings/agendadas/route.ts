@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getTodayBookedMeetings, getAllOwners, getTodayDateEST } from '@/lib/hubspot';
+import {
+  getAllWhitelistedBookedContacts,
+  getValidEntryInRange,
+  WHITELISTED_SDR_IDS,
+  getTodayDateEST,
+  getDateRangeForString,
+} from '@/lib/hubspot';
 import type { Meeting } from '@/types/meeting';
+
+export const dynamic = 'force-dynamic';
 
 export interface SDRCount {
   sdrId: string;
@@ -9,69 +17,38 @@ export interface SDRCount {
   count: number;
 }
 
-const WHITELISTED_SDR_NAMES = [
-  'antonia romero ampuero',
-  'pedro farren',
-  'jose bacarreza',
-  'josé bacarreza',
-  'diego escobar',
-  'martin hidalgo',
-  'martín hidalgo',
-];
-
-function normalize(str: string) {
-  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-const NORMALIZED_WHITELIST = WHITELISTED_SDR_NAMES.map(normalize);
-
-function isWhitelisted(fullName: string) {
-  const n = normalize(fullName);
-  return NORMALIZED_WHITELIST.some(w => n === w || n.includes(w) || w.includes(n));
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const date = searchParams.get('date') ?? getTodayDateEST();
+  const today = getTodayDateEST();
+  const from = searchParams.get('from') ?? today;
+  const to   = searchParams.get('to')   ?? from;
+
+  const startMs = getDateRangeForString(from).startMs;
+  const endMs   = getDateRangeForString(to).endMs; // fin del día "to"
 
   try {
-    const [contacts, ownersMap] = await Promise.all([
-      getTodayBookedMeetings(date),
-      getAllOwners(),
-    ]);
+    const items = await getAllWhitelistedBookedContacts();
 
-    const scopeMissing = ownersMap.size === 0;
     const sdrCounts = new Map<string, SDRCount>();
     const meetings: Meeting[] = [];
 
-    for (const contact of contacts) {
+    for (const { contact, validHistory } of items) {
+      const entry = getValidEntryInRange(validHistory, startMs, endMs);
+      if (!entry) continue;
+
       const props = contact.properties;
-      const ownerId = props.hubspot_owner_id;
-      if (!ownerId) continue;
+      const ownerId = props.hubspot_owner_id!;
+      const sdrName = WHITELISTED_SDR_IDS.get(ownerId) ?? `ID:${ownerId}`;
 
-      const owner = ownersMap.get(ownerId);
-      const sdrName = owner ? `${owner.firstName} ${owner.lastName}`.trim() : `ID:${ownerId}`;
-      const sdrEmail = owner?.email ?? '';
-
-      // Aplicar whitelist solo cuando tenemos nombres reales
-      if (!scopeMissing && !isWhitelisted(sdrName)) continue;
-
-      // Contar por SDR
       if (sdrCounts.has(ownerId)) {
         sdrCounts.get(ownerId)!.count++;
       } else {
-        sdrCounts.set(ownerId, { sdrId: ownerId, sdrName, sdrEmail, count: 1 });
+        sdrCounts.set(ownerId, { sdrId: ownerId, sdrName, sdrEmail: '', count: 1 });
       }
 
-      // Construir meeting completa
       const proximaReunion = props.proxima_reunion;
       const meetingTime = proximaReunion
         ? new Date(isNaN(Number(proximaReunion)) ? proximaReunion : parseInt(proximaReunion))
-        : null;
-
-      const fechaAgStr = props.fecha_agendamiento;
-      const fechaAgendamiento = fechaAgStr
-        ? new Date(isNaN(Number(fechaAgStr)) ? fechaAgStr : parseInt(fechaAgStr))
         : null;
 
       meetings.push({
@@ -81,13 +58,14 @@ export async function GET(request: Request) {
           name: `${props.firstname ?? ''} ${props.lastname ?? ''}`.trim(),
           email: props.email ?? '',
           company: props.company ?? '',
+          fax: props.fax ?? '',
         },
-        sdr: { id: ownerId, name: sdrName, email: sdrEmail },
+        sdr: { id: ownerId, name: sdrName, email: '' },
         status: props.estado_prospeccion_vol2 ?? 'Sin estado',
         notes: '',
         meetingLink: '',
         ejecutivo: props.ejecutivo_que_toma_la_reunion ?? '',
-        fechaAgendamiento: fechaAgendamiento?.toISOString() ?? '',
+        fechaAgendamiento: new Date(entry.tsMs).toISOString(),
       });
     }
 
@@ -96,11 +74,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      date,
+      from,
+      to,
       total: meetings.length,
       bySDR,
       meetings,
-      scopeMissing,
+      scopeMissing: false,
     });
   } catch (error: any) {
     console.error('Error in /api/meetings/agendadas:', error);

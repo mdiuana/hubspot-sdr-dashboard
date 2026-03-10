@@ -1,7 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BarChart2, CalendarDays, Loader2, Maximize2, Minimize2 } from "lucide-react"
+import { BarChart2, Loader2, Maximize2, Minimize2 } from "lucide-react"
+import { DateRangePicker } from "./date-range-picker"
+import { DateRange, fmtShort } from "@/lib/date-utils"
+
+export type { DateRange }
 
 export interface SDRCount {
   sdrId: string
@@ -15,10 +19,10 @@ interface SDRChartProps {
   total: number
   loading: boolean
   scopeMissing: boolean
-  selectedDate: string
-  onDateChange: (date: string) => void
+  dateRange: DateRange
+  onRangeChange: (range: DateRange) => void
   barHeight?: number
-  fill?: boolean   // ocupa toda la altura del contenedor padre
+  fill?: boolean
 }
 
 const BAR_COLORS = [
@@ -59,15 +63,18 @@ export function SDRChart({
   total,
   loading,
   scopeMissing,
-  selectedDate,
-  onDateChange,
+  dateRange,
+  onRangeChange,
   barHeight = 120,
   fill = false,
 }: SDRChartProps) {
   const [fullscreen, setFullscreen] = useState(false)
   const max = Math.max(...bySDR.map(s => s.count), 1)
 
-  // Cerrar con Escape
+  const rangeLabel = dateRange.from === dateRange.to
+    ? fmtShort(dateRange.from)
+    : `${fmtShort(dateRange.from)} – ${fmtShort(dateRange.to)}`
+
   useEffect(() => {
     if (!fullscreen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false) }
@@ -75,7 +82,7 @@ export function SDRChart({
     return () => window.removeEventListener("keydown", onKey)
   }, [fullscreen])
 
-  /* ── Render barras (tamaño fijo, card normal) ── */
+  /* ── Render barras (tamaño fijo) ── */
   const renderBars = (H: number) => {
     if (loading) {
       return (
@@ -95,7 +102,7 @@ export function SDRChart({
       return (
         <div className="flex flex-col items-center justify-center py-12 gap-2">
           <BarChart2 className="h-10 w-10 text-muted-foreground/20 animate-float" />
-          <p className="text-sm text-muted-foreground">Ningún SDR agendó reuniones en esa fecha</p>
+          <p className="text-sm text-muted-foreground">Ningún SDR agendó reuniones en ese período</p>
         </div>
       )
     }
@@ -129,25 +136,18 @@ export function SDRChart({
                 className="flex flex-col items-center gap-1 flex-1 min-w-0"
                 style={{ height: `${H + 36}px` }}
               >
-                {/* Barra + número flotando encima */}
                 <div className="relative w-full" style={{ height: `${H}px` }}>
-                  {/* Número + corona: posicionado justo sobre la punta de la barra */}
                   <div
                     className="absolute left-0 right-0 flex flex-col items-center pointer-events-none"
                     style={{ bottom: `calc(${pct}% + 4px)` }}
                   >
                     {isWinner && (
-                      <svg
-                        viewBox="0 0 20 13"
-                        className="w-4 h-3 shrink-0"
-                        style={{
-                          animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
-                        }}
-                      >
+                      <svg viewBox="0 0 20 13" className="w-4 h-3 shrink-0"
+                        style={{ animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite` }}>
                         <path d="M1 11 L4.5 3.5 L10 8.5 L15.5 1 L19 11 Z" fill="#facc15" stroke="#b45309" strokeWidth="0.7" strokeLinejoin="round" />
-                        <circle cx="1"   cy="11.5" r="1.3" fill="#facc15" />
-                        <circle cx="10"  cy="9"    r="1.3" fill="#facc15" />
-                        <circle cx="19"  cy="11.5" r="1.3" fill="#facc15" />
+                        <circle cx="1" cy="11.5" r="1.3" fill="#facc15" />
+                        <circle cx="10" cy="9" r="1.3" fill="#facc15" />
+                        <circle cx="19" cy="11.5" r="1.3" fill="#facc15" />
                       </svg>
                     )}
                     <span
@@ -157,24 +157,17 @@ export function SDRChart({
                       {sdr.count}
                     </span>
                   </div>
-
-                  {/* Barra */}
                   <div
                     className={`absolute bottom-0 left-0 right-0 ${color} ${isWinner ? "rounded-t-2xl" : "rounded-xl bar-animate"}`}
                     style={{
                       height: `${pct}%`,
                       ...(isWinner
-                        ? {
-                            '--glow-c': glow,
-                            animation: `barGrow 0.6s cubic-bezier(0.34,1.1,0.64,1) ${i * 70}ms both, barGlowPulse 2.2s ease-in-out ${i * 70 + 700}ms infinite`,
-                          }
+                        ? { '--glow-c': glow, animation: `barGrow 0.6s cubic-bezier(0.34,1.1,0.64,1) ${i * 70}ms both, barGlowPulse 2.2s ease-in-out ${i * 70 + 700}ms infinite` }
                         : { animationDelay: `${i * 70}ms`, boxShadow: `0 8px 24px -4px ${glow}` }
                       ),
                     } as React.CSSProperties}
                   />
                 </div>
-
-                {/* Nombre */}
                 <span
                   className={`text-[11px] text-center leading-tight truncate w-full animate-fade-in-up ${isWinner ? "font-bold text-foreground" : "font-semibold text-muted-foreground"}`}
                   title={sdr.sdrName}
@@ -190,7 +183,7 @@ export function SDRChart({
     )
   }
 
-  /* ── Render barras (fullscreen — 100% CSS, sin px fijos) ── */
+  /* ── Render barras (fullscreen) ── */
   const renderBarsFullscreen = () => {
     if (loading) {
       return (
@@ -214,7 +207,7 @@ export function SDRChart({
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
           <BarChart2 className="h-16 w-16 text-muted-foreground/20 animate-float" />
-          <p className="text-base text-muted-foreground">Ningún SDR agendó reuniones en esa fecha</p>
+          <p className="text-base text-muted-foreground">Ningún SDR agendó reuniones en ese período</p>
         </div>
       )
     }
@@ -230,23 +223,14 @@ export function SDRChart({
 
           return (
             <div key={sdr.sdrId} className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
-
-              {/* Área de barra — el número flota justo encima con absolute */}
               <div className="flex-1 min-h-0 w-full relative">
-                {/* Número + corona: posicionado justo sobre la punta de la barra */}
                 <div
                   className="absolute left-0 right-0 flex flex-col items-center pointer-events-none"
                   style={{ bottom: `calc(${pct}% + 6px)` }}
                 >
                   {isWinner && (
-                    <svg
-                      viewBox="0 0 24 16"
-                      className="w-6 h-4 shrink-0 mb-0.5"
-                      style={{
-                        animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`,
-                        filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))",
-                      }}
-                    >
+                    <svg viewBox="0 0 24 16" className="w-6 h-4 shrink-0 mb-0.5"
+                      style={{ animation: `crownDrop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 70 + 500}ms both, crownGlow 2.5s ease-in-out ${i * 70 + 1050}ms infinite`, filter: "drop-shadow(0 1px 3px rgba(234,179,8,0.5))" }}>
                       <path d="M1,15 L1,8 L5,2 L7,8 L12,0 L17,8 L19,2 L23,8 L23,15 Z" fill="#facc15" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" strokeLinecap="round" />
                       <rect x="1" y="12" width="22" height="3" rx="1" fill="#f59e0b" />
                     </svg>
@@ -258,24 +242,17 @@ export function SDRChart({
                     {sdr.count}
                   </span>
                 </div>
-
-                {/* Barra */}
                 <div
                   className={`absolute bottom-0 left-0 right-0 ${color} rounded-2xl`}
                   style={{
                     height: `${pct}%`,
                     ...(isWinner
-                      ? {
-                          '--glow-c': glow,
-                          animation: `barGrow 0.6s cubic-bezier(0.34,1.1,0.64,1) ${i * 70}ms both, barGlowPulse 2.2s ease-in-out ${i * 70 + 700}ms infinite`,
-                        }
+                      ? { '--glow-c': glow, animation: `barGrow 0.6s cubic-bezier(0.34,1.1,0.64,1) ${i * 70}ms both, barGlowPulse 2.2s ease-in-out ${i * 70 + 700}ms infinite` }
                       : { animationDelay: `${i * 70}ms`, boxShadow: `0 12px 40px -6px ${glow}` }
                     ),
                   } as React.CSSProperties}
                 />
               </div>
-
-              {/* Nombre */}
               <span
                 className={`text-xs sm:text-sm text-center shrink-0 truncate w-full animate-fade-in-up ${isWinner ? "font-bold text-foreground" : "font-semibold text-muted-foreground"}`}
                 title={sdr.sdrName}
@@ -283,7 +260,6 @@ export function SDRChart({
               >
                 {sdr.sdrName.split(" ")[0]}
               </span>
-
             </div>
           )
         })}
@@ -299,22 +275,12 @@ export function SDRChart({
         </div>
         <div className="min-w-0">
           <h2 className="text-sm font-bold leading-tight truncate">Reuniones por SDR</h2>
-          <p className="text-xs text-muted-foreground hidden sm:block">
-            {scopeMissing ? "Sin permisos de owners" : "Fecha seleccionada"}
-          </p>
+          <p className="text-xs text-muted-foreground hidden sm:block">{rangeLabel}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 glass-sm rounded-xl px-2.5 py-1.5">
-          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => onDateChange(e.target.value)}
-            className="text-xs font-semibold bg-transparent border-none outline-none cursor-pointer text-foreground w-[105px]"
-          />
-        </div>
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <DateRangePicker dateRange={dateRange} onChange={onRangeChange} />
 
         <div className="text-right shrink-0">
           {loading
@@ -341,14 +307,12 @@ export function SDRChart({
 
   return (
     <>
-      {/* ── Card normal ── */}
+      {/* Card normal */}
       <div
         className={`glass rounded-2xl p-6 animate-fade-in-up ${fill ? "h-full flex flex-col gap-4" : "space-y-5"}`}
         style={{ animationDelay: "60ms" }}
       >
         {cardHeader}
-
-        {/* Chart area */}
         {fill ? (
           <div className="flex-1 min-h-0">
             {renderBarsFullscreen()}
@@ -358,11 +322,9 @@ export function SDRChart({
         )}
       </div>
 
-      {/* ── Vista fullscreen — ocupa todo el viewport ── */}
+      {/* Vista fullscreen */}
       {fullscreen && (
         <div className="fixed inset-0 z-50 mesh-bg flex flex-col animate-fade-in">
-
-          {/* Header */}
           <div className="glass-heavy shrink-0 px-6 sm:px-10 py-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 p-2.5 shadow-md shadow-violet-500/30">
@@ -370,22 +332,12 @@ export function SDRChart({
               </div>
               <div>
                 <h2 className="text-base font-bold leading-tight">Reuniones Agendadas por SDR</h2>
-                <p className="text-xs text-muted-foreground">
-                  {scopeMissing ? "Sin permisos de owners — mostrando por ID" : "Reuniones agendadas · " + selectedDate}
-                </p>
+                <p className="text-xs text-muted-foreground">{rangeLabel}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 glass-sm rounded-xl px-3.5 py-2">
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => onDateChange(e.target.value)}
-                  className="text-xs font-semibold bg-transparent border-none outline-none cursor-pointer text-foreground"
-                />
-              </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <DateRangePicker dateRange={dateRange} onChange={onRangeChange} />
 
               <div className="text-right">
                 <p className="text-5xl font-black tabular-nums leading-none bg-gradient-to-br from-blue-500 to-indigo-600 bg-clip-text text-transparent">
@@ -404,11 +356,9 @@ export function SDRChart({
             </div>
           </div>
 
-          {/* Área del gráfico — flex-1 + min-h-0 garantiza que llena exactamente el espacio restante */}
           <div className="flex-1 min-h-0 px-8 sm:px-14 pt-6 pb-8">
             {renderBarsFullscreen()}
           </div>
-
         </div>
       )}
     </>

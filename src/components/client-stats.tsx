@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Building2, CalendarDays } from "lucide-react"
+import { DateRangePicker } from "./date-range-picker"
+import { DateRange, todayRange, fmtFull } from "@/lib/date-utils"
 
 interface ClientCount { name: string; count: number }
 interface ClientStatsData { total: number; clients: ClientCount[] }
@@ -45,19 +47,10 @@ function ClientCard({ client, index, visible }: { client: ClientCount; index: nu
       className="relative rounded-2xl overflow-hidden card-lift animate-fade-in-up glass-sm"
       style={{ animationDelay: `${index * 60}ms`, "--glow-color": glow } as React.CSSProperties}
     >
-      {/* Gradient top stripe */}
       <div className={`h-1 w-full bg-gradient-to-r ${gradient}`} />
-
-      {/* Glow blob */}
-      <div
-        className={`absolute -top-6 -right-6 w-16 h-16 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-xl`}
-      />
-
+      <div className={`absolute -top-6 -right-6 w-16 h-16 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-xl`} />
       <div className="relative p-4 text-center">
-        <p
-          className="text-3xl font-black tabular-nums leading-none animate-scale-pop"
-          style={{ animationDelay: `${index * 60 + 150}ms` }}
-        >
+        <p className="text-3xl font-black tabular-nums leading-none animate-scale-pop" style={{ animationDelay: `${index * 60 + 150}ms` }}>
           {count}
         </p>
         <p className="text-[10px] font-bold text-muted-foreground mt-1.5 uppercase tracking-widest truncate" title={client.name}>
@@ -68,23 +61,33 @@ function ClientCard({ client, index, visible }: { client: ClientCount; index: nu
   )
 }
 
-export function ClientStats({ selectedDate }: { selectedDate: string }) {
+export function ClientStats() {
   const [period, setPeriod] = useState<Period>("month")
+  const [dateRange, setDateRange] = useState<DateRange>(todayRange())
   const [data, setData] = useState<ClientStatsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    if (!selectedDate && period === "day") return
     setLoading(true); setVisible(false)
     const params = new URLSearchParams({ period })
-    if (period === "day" && selectedDate) params.set("date", selectedDate)
+    if (period === "day") {
+      params.set("from", dateRange.from)
+      params.set("to",   dateRange.to)
+    }
     fetch(`/api/stats/clients?${params}`)
       .then(r => r.json())
       .then(json => { if (json.success) { setData(json); setTimeout(() => setVisible(true), 40) } })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [period, selectedDate])
+  }, [period, dateRange.from, dateRange.to])
+
+  function rangeLabel() {
+    if (period === "month") return "este mes"
+    return dateRange.from === dateRange.to
+      ? `el ${fmtFull(dateRange.from)}`
+      : `del ${fmtFull(dateRange.from)} al ${fmtFull(dateRange.to)}`
+  }
 
   return (
     <div className="glass rounded-2xl p-5 space-y-4 animate-fade-in-up">
@@ -96,27 +99,34 @@ export function ClientStats({ selectedDate }: { selectedDate: string }) {
           <div>
             <h2 className="text-sm font-bold leading-tight">Reuniones por Cliente</h2>
             <p className="text-xs text-muted-foreground">
-              {loading ? "Cargando..." : `${data?.total ?? 0} agendadas ${period === "month" ? "este mes" : `el ${selectedDate?.split("-").reverse().join("/") ?? ""}`}`}
+              {loading ? "Cargando..." : `${data?.total ?? 0} agendadas ${rangeLabel()}`}
             </p>
           </div>
         </div>
 
-        {/* Period toggle — pill style */}
-        <div className="flex items-center rounded-full border glass-sm p-0.5 gap-0.5">
-          {(["month", "day"] as Period[]).map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`btn-press flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
-                period === p
-                  ? "bg-primary text-white shadow-sm shadow-primary/30"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CalendarDays className="h-3 w-3" />
-              {p === "month" ? "Mes" : "Día"}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Range picker — solo visible en modo día */}
+          {period === "day" && (
+            <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+          )}
+
+          {/* Period toggle */}
+          <div className="flex items-center rounded-full border glass-sm p-0.5 gap-0.5 shrink-0">
+            {(["month", "day"] as Period[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`btn-press flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
+                  period === p
+                    ? "bg-primary text-white shadow-sm shadow-primary/30"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <CalendarDays className="h-3 w-3" />
+                {p === "month" ? "Mes" : "Rango"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
