@@ -476,6 +476,7 @@ export async function getAllWhitelistedBookedContacts(
       method: 'POST',
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const txt = await res.text();
@@ -499,6 +500,7 @@ export async function getAllWhitelistedBookedContacts(
         properties: [],
         inputs: batch.map(c => ({ id: c.id })),
       }),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const txt = await res.text();

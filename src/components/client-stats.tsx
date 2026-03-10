@@ -68,7 +68,7 @@ export function ClientStats() {
   const [loading, setLoading] = useState(true)
   const [visible, setVisible] = useState(false)
 
-  useEffect(() => {
+  function doFetch() {
     setLoading(true); setVisible(false)
     const params = new URLSearchParams({ period })
     if (period === "day") {
@@ -80,6 +80,15 @@ export function ClientStats() {
       .then(json => { if (json.success) { setData(json); setTimeout(() => setVisible(true), 40) } })
       .catch(console.error)
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    doFetch()
+  }, [period, dateRange.from, dateRange.to])
+
+  useEffect(() => {
+    const t = setInterval(doFetch, 30_000)
+    return () => clearInterval(t)
   }, [period, dateRange.from, dateRange.to])
 
   function rangeLabel() {
