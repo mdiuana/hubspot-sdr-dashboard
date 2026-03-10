@@ -133,14 +133,18 @@ export function ClientStats() {
     fetch(`/api/stats/clients?${params}`)
       .then(r => r.json())
       .then(json => { if (json.success) { setData(json); setTimeout(() => setVisible(true), 40) } })
-      .catch(console.error)
+      .catch(e => { console.error(e); setVisible(true) }) // restaurar visibilidad si falla
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { doFetch() }, [period, dateRange.from, dateRange.to])
+  // Auto-refresh cada 5 minutos, escalonado +60s respecto al dashboard
   useEffect(() => {
-    const t = setInterval(doFetch, 60_000)
-    return () => clearInterval(t)
+    let t: ReturnType<typeof setInterval>
+    const delay = setTimeout(() => {
+      t = setInterval(doFetch, 5 * 60_000)
+    }, 60_000)
+    return () => { clearTimeout(delay); clearInterval(t) }
   }, [period, dateRange.from, dateRange.to])
 
   function rangeLabel() {

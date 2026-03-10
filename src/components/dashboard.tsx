@@ -88,28 +88,37 @@ export function Dashboard() {
   }
 
   // ── Effects ─────────────────────────────────────────────────
+  // Auto-refresh cada 5 minutos, escalonado para no disparar 3 requests simultáneos:
+  // meetings: 0s offset · agendadas: +20s · leaderboard: +40s
+  const REFRESH_MS = 5 * 60_000
 
   // Tabla reuniones hoy
   useEffect(() => { fetchTodayMeetings() }, [])
   useEffect(() => {
-    const t = setInterval(fetchTodayMeetings, 60_000)
+    const t = setInterval(fetchTodayMeetings, REFRESH_MS)
     return () => clearInterval(t)
   }, [])
 
-  // Chart: fetch cuando cambia chartRange
+  // Chart: fetch cuando cambia chartRange (escalonado +20s)
   useEffect(() => { fetchAgendadas(chartRange) }, [chartRange.from, chartRange.to])
   useEffect(() => {
     if (!chartRange.from) return
-    const t = setInterval(() => fetchAgendadas(chartRange), 60_000)
-    return () => clearInterval(t)
+    let t: ReturnType<typeof setInterval>
+    const delay = setTimeout(() => {
+      t = setInterval(() => fetchAgendadas(chartRange), REFRESH_MS)
+    }, 20_000)
+    return () => { clearTimeout(delay); clearInterval(t) }
   }, [chartRange.from, chartRange.to])
 
-  // Leaderboard: fetch cuando cambia lbRange
+  // Leaderboard: fetch cuando cambia lbRange (escalonado +40s)
   useEffect(() => { fetchLeaderboard(lbRange) }, [lbRange.from, lbRange.to])
   useEffect(() => {
     if (!lbRange.from) return
-    const t = setInterval(() => fetchLeaderboard(lbRange), 60_000)
-    return () => clearInterval(t)
+    let t: ReturnType<typeof setInterval>
+    const delay = setTimeout(() => {
+      t = setInterval(() => fetchLeaderboard(lbRange), REFRESH_MS)
+    }, 40_000)
+    return () => { clearTimeout(delay); clearInterval(t) }
   }, [lbRange.from, lbRange.to])
 
   const todaySorted = [...todayMeetings].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())

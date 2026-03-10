@@ -1,5 +1,17 @@
 const HUBSPOT_API_BASE = 'https://api.hubapi.com';
 const ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
+const FETCH_TIMEOUT_MS = 25_000;
+
+/**
+ * Wrapper sobre fetch que aborta automáticamente tras FETCH_TIMEOUT_MS.
+ * Previene que requests colgadas a HubSpot bloqueen indefinidamente.
+ */
+function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
 
 // HubSpot portal timezone: EST (UTC-5)
 const EST_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -87,7 +99,7 @@ export async function getContactsByDateRange(
     };
     if (after) body.after = after;
 
-    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+    const res = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -135,7 +147,7 @@ export async function getRecentlyModifiedContacts(sinceMs: number): Promise<HubS
     };
     if (after) body.after = after;
 
-    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+    const res = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -203,7 +215,7 @@ export async function getTodayMeetings(dateStr?: string) {
     : getTodayRangeEST();
 
   try {
-    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+    const response = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -274,7 +286,7 @@ export async function getAllOwners(): Promise<Map<string, HubSpotOwner>> {
   if (!ACCESS_TOKEN) throw new Error('HUBSPOT_ACCESS_TOKEN no configurado');
 
   try {
-    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/owners?limit=100`, {
+    const response = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/owners?limit=100`, {
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}` },
       cache: 'no-store',
     });
@@ -328,7 +340,7 @@ export async function getTodayBookedMeetings(dateStr?: string) {
   ];
 
   try {
-    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+    const response = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -393,7 +405,7 @@ export async function getCompany(companyId: string): Promise<HubSpotCompany | nu
   }
 
   try {
-    const response = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/companies/${companyId}`, {
+    const response = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/companies/${companyId}`, {
       headers: {
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
       },
@@ -474,7 +486,7 @@ export async function getAllWhitelistedBookedContacts(
     };
     if (after) body.after = after;
 
-    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
+    const res = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/search`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -494,7 +506,7 @@ export async function getAllWhitelistedBookedContacts(
 
   for (let i = 0; i < all.length; i += 50) {
     const batch = all.slice(i, i + 50);
-    const res = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/batch/read`, {
+    const res = await fetchWithTimeout(`${HUBSPOT_API_BASE}/crm/v3/objects/contacts/batch/read`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
