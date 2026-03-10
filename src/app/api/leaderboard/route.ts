@@ -10,12 +10,14 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+interface SDRCount { id: string; name: string; email: string; count: number }
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const today = getTodayDateEST();
-    const from = searchParams.get('from');
-    const to   = searchParams.get('to');
+    const from  = searchParams.get('from');
+    const to    = searchParams.get('to');
 
     let startMs: number;
     let endMs: number;
@@ -28,7 +30,9 @@ export async function GET(request: Request) {
     }
 
     const items = await getAllWhitelistedBookedContacts();
-    const counts = new Map<string, { name: string; email: string; count: number }>();
+
+    const agendadasMap  = new Map<string, SDRCount>();
+    const presentadasMap = new Map<string, SDRCount>();
 
     for (const { contact, validHistory } of items) {
       const entry = getValidEntryInRange(validHistory, startMs, endMs);
@@ -37,21 +41,30 @@ export async function GET(request: Request) {
       const ownerId = contact.properties.hubspot_owner_id!;
       const name = WHITELISTED_SDR_IDS.get(ownerId) ?? `ID:${ownerId}`;
 
-      if (counts.has(ownerId)) {
-        counts.get(ownerId)!.count++;
+      // Agendadas
+      if (agendadasMap.has(ownerId)) {
+        agendadasMap.get(ownerId)!.count++;
       } else {
-        counts.set(ownerId, { name, email: '', count: 1 });
+        agendadasMap.set(ownerId, { id: ownerId, name, email: '', count: 1 });
+      }
+
+      // Presentadas
+      if (contact.properties.nm_presentada_2 === 'SI') {
+        if (presentadasMap.has(ownerId)) {
+          presentadasMap.get(ownerId)!.count++;
+        } else {
+          presentadasMap.set(ownerId, { id: ownerId, name, email: '', count: 1 });
+        }
       }
     }
 
-    const ranking = Array.from(counts.entries())
-      .map(([id, { name, email, count }]) => ({ id, name, email, count }))
-      .sort((a, b) => b.count - a.count);
+    const agendadas  = Array.from(agendadasMap.values()).sort((a, b) => b.count - a.count);
+    const presentadas = Array.from(presentadasMap.values()).sort((a, b) => b.count - a.count);
 
     return NextResponse.json({
       success: true,
-      ranking,
-      total: ranking.reduce((s, r) => s + r.count, 0),
+      agendadas,
+      presentadas,
       scopeMissing: false,
     });
   } catch (error: any) {

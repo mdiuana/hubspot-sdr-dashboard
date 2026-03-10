@@ -42,8 +42,9 @@ export function Dashboard() {
   const [agendadasLoading, setAgendadasLoading] = useState(false)
 
   // Sección: Leaderboard
-  const [lbRange, setLbRange]         = useState<DateRange>({ from: "", to: "" })
-  const [ranking, setRanking]         = useState<RankEntry[]>([])
+  const [lbRange, setLbRange]             = useState<DateRange>({ from: "", to: "" })
+  const [lbAgendadas, setLbAgendadas]     = useState<RankEntry[]>([])
+  const [lbPresentadas, setLbPresentadas] = useState<RankEntry[]>([])
   const [rankingLoading, setRankingLoading] = useState(true)
 
   // Inicializar ambos rangos con "Hoy" en EST
@@ -81,7 +82,7 @@ export function Dashboard() {
     try {
       const res = await fetch(`/api/leaderboard?from=${range.from}&to=${range.to}`)
       const data = await res.json()
-      if (data.success) setRanking(data.ranking)
+      if (data.success) { setLbAgendadas(data.agendadas ?? []); setLbPresentadas(data.presentadas ?? []) }
     } catch (e) { console.error(e) }
     finally { setRankingLoading(false) }
   }
@@ -243,7 +244,8 @@ export function Dashboard() {
               <div style={{ flex: 1, minWidth: 140, maxWidth: 240, height: "100%", overflow: "hidden" }}>
                 {lbRange.from && (
                   <Leaderboard
-                    ranking={ranking}
+                    agendadas={lbAgendadas}
+                    presentadas={lbPresentadas}
                     loading={rankingLoading}
                     dateRange={lbRange}
                     onRangeChange={setLbRange}

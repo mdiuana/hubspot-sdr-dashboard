@@ -9,12 +9,16 @@ import {
 
 export interface ClientCount {
   name: string;
-  count: number;
+  agendadas: number;
+  presentadas: number;
 }
+
+// Clientes que siempre aparecen aunque tengan 0
+const FIXED_CLIENTS = ['GFIRMEX', 'CHILEXPR', 'SIXBELLG', 'SAMEX'];
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const period = searchParams.get('period') ?? 'month'; // 'month' | 'day'
+  const period = searchParams.get('period') ?? 'month';
   const today  = getTodayDateEST();
   const from   = searchParams.get('from') ?? today;
   const to     = searchParams.get('to')   ?? from;
@@ -31,7 +35,12 @@ export async function GET(request: Request) {
     }
 
     const items = await getAllWhitelistedBookedContacts();
-    const clientCounts = new Map<string, number>();
+    const clientMap = new Map<string, ClientCount>();
+
+    // Seed con clientes fijos para que siempre aparezcan
+    for (const name of FIXED_CLIENTS) {
+      clientMap.set(name, { name, agendadas: 0, presentadas: 0 });
+    }
 
     for (const { contact, validHistory } of items) {
       const entry = getValidEntryInRange(validHistory, startMs, endMs);
@@ -39,19 +48,24 @@ export async function GET(request: Request) {
 
       const raw = contact.properties.fax as string | undefined;
       const name = raw?.trim().replace(/\s+/g, ' ') || 'Sin cliente';
-      clientCounts.set(name, (clientCounts.get(name) ?? 0) + 1);
+
+      if (!clientMap.has(name)) {
+        clientMap.set(name, { name, agendadas: 0, presentadas: 0 });
+      }
+      const row = clientMap.get(name)!;
+      row.agendadas++;
+      if (contact.properties.nm_presentada_2 === 'SI') row.presentadas++;
     }
 
-    const clients: ClientCount[] = Array.from(clientCounts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
+    const clients = Array.from(clientMap.values())
+      .sort((a, b) => b.agendadas - a.agendadas);
 
     return NextResponse.json({
       success: true,
       period,
       from: period === 'day' ? from : undefined,
       to:   period === 'day' ? to   : undefined,
-      total: clients.reduce((s, c) => s + c.count, 0),
+      total: clients.reduce((s, c) => s + c.agendadas, 0),
       clients,
     });
   } catch (error: any) {
