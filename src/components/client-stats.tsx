@@ -87,7 +87,7 @@ export function ClientStats() {
   }, [period, dateRange.from, dateRange.to])
 
   useEffect(() => {
-    const t = setInterval(doFetch, 30_000)
+    const t = setInterval(doFetch, 60_000)
     return () => clearInterval(t)
   }, [period, dateRange.from, dateRange.to])
 

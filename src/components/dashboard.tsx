@@ -91,7 +91,7 @@ export function Dashboard() {
   // Tabla reuniones hoy
   useEffect(() => { fetchTodayMeetings() }, [])
   useEffect(() => {
-    const t = setInterval(fetchTodayMeetings, 30_000)
+    const t = setInterval(fetchTodayMeetings, 60_000)
     return () => clearInterval(t)
   }, [])
 
@@ -99,7 +99,7 @@ export function Dashboard() {
   useEffect(() => { fetchAgendadas(chartRange) }, [chartRange.from, chartRange.to])
   useEffect(() => {
     if (!chartRange.from) return
-    const t = setInterval(() => fetchAgendadas(chartRange), 30_000)
+    const t = setInterval(() => fetchAgendadas(chartRange), 60_000)
     return () => clearInterval(t)
   }, [chartRange.from, chartRange.to])
 
@@ -107,7 +107,7 @@ export function Dashboard() {
   useEffect(() => { fetchLeaderboard(lbRange) }, [lbRange.from, lbRange.to])
   useEffect(() => {
     if (!lbRange.from) return
-    const t = setInterval(() => fetchLeaderboard(lbRange), 30_000)
+    const t = setInterval(() => fetchLeaderboard(lbRange), 60_000)
     return () => clearInterval(t)
   }, [lbRange.from, lbRange.to])
 
