@@ -182,6 +182,7 @@ export interface HubSpotContact {
     presentada?: string;  // REUNION PRESENTADA (SI/NO)
     ocurrio_reunion?: string;  // Ocurrió Reunion (SI/NO)
     nm_presentada_2?: string;  // NM Presentada (SI/NO)
+    fecha_reunion_reagendada?: string;  // Fecha Reunión Re-Agendada (datetime)
     [key: string]: any;
   };
 }
@@ -467,7 +468,7 @@ export async function getAllWhitelistedBookedContacts(
     'firstname', 'lastname', 'email', 'company', 'fax',
     'hubspot_owner_id', 'estado_prospeccion_vol2',
     'proxima_reunion', 'ejecutivo_que_toma_la_reunion',
-    'nm_presentada_2',
+    'nm_presentada_2', 'fecha_reunion_reagendada',
     ...extraProperties,
   ];
 

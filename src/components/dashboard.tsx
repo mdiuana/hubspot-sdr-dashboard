@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Meeting } from "@/types/meeting"
 import { ClientStats } from "./client-stats"
+import { PresentationRate } from "./presentation-rate"
 import { SDRChart, SDRCount } from "./sdr-chart"
 import { MeetingsTable } from "./meetings-table"
 import { SeguimientoSDR } from "./seguimiento-sdr"
@@ -265,6 +266,9 @@ export function Dashboard() {
 
             {/* ClientStats — self-contained */}
             <ClientStats />
+
+            {/* Tasa de Presentación */}
+            <PresentationRate />
 
           </section>
 
